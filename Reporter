@@ -1,0 +1,145 @@
+from colorama import Fore, init, Style
+import threading, requests, ctypes, os, time
+
+init(autoreset=True)
+
+class Reporter:
+    def __init__(self):
+        self.reported = 0
+        self.errors = 0
+        self.rate_limit_wait = 0 
+
+    def session(self):
+        session = requests.Session()
+        session.trust_env = False
+        return session
+
+    def update_title(self):
+        ctypes.windll.kernel32.SetConsoleTitleW(f"Discord report spammer | Sent: {self.reported} | Errors: {self.errors}")
+
+    def report_message(self):
+        headers = {
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US",
+            "User-Agent": "Discord/21887 CFNetwork/1197 Darwin/20.0.0",
+            "Content-Type": "application/json",
+            "Authorization": self.token
+        }
+        json_data = {
+            "channel_id": self.channel_id,
+            "message_id": self.message_id,
+            "guild_id": self.guild_id,
+            "reason": self.reason
+        }
+        
+   
+        if self.rate_limit_wait > 0:
+            print(f"{Fore.YELLOW}Rate limit hit waiting {self.rate_limit_wait} seconds...")
+            time.sleep(self.rate_limit_wait)
+            self.rate_limit_wait = 0
+
+        try:
+            res = self.session().post("https://discordapp.com/api/v8/report", json=json_data, headers=headers)
+            if res.status_code == 201:
+                self.reported += 1
+                print(f"{Fore.GREEN} Report has been sent SUCCESSFULLY")
+            elif res.status_code == 429:
+                self.errors += 1
+                retry_after = float(res.json().get('retry_after', 1))
+                self.rate_limit_wait = retry_after
+                print(f"{Fore.RED} Rate limited (429), retry after {retry_after} seconds")
+            else:
+                self.errors += 1
+                print(f"{Fore.RED} Failed ({res.status_code}) {res.text}")
+            
+           
+            time.sleep(0.1) 
+        except Exception as e:
+            self.errors += 1
+            print(f"{Fore.RED} Error: {str(e)}")
+        
+        self.update_title()
+
+    def reasons(self):
+        os.system("cls")
+        print("\n{0} > {1}{2}1: Illegal Content".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT))
+        print("{0} > {1}{2}2: Harassment".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT))
+        print("{0} > {1}{2}3: Spam or Phishing Links".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT))
+        print("{0} > {1}{2}4: Self Harm".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT))
+        print("{0} > {1}{2}5: NSFW Content".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT))
+        option = str(input("\n{0} > {1}{2}".format(Fore.GREEN, Fore.WHITE, Style.BRIGHT)))
+        if option == "1":
+            self.reason = 0
+        elif option == "2":
+            self.reason = 1
+        elif option == "3":
+            self.reason = 2
+        elif option == "4":
+            self.reason = 3
+        elif option == "5":
+            self.reason = 4
+        else:
+            self.reasons()
+
+    def start(self):
+        self.reasons()
+        def my_function():
+            while True:
+                self.report_message()
+       
+        for _ in range(min(self.threads, 10)): 
+            threading.Thread(target=my_function).start()
+
+    def main(self):
+        ctypes.windll.kernel32.SetConsoleTitleW("Discord Report Spammer")
+        os.system("cls")
+        print(r"""
+ _______   __                                                __                 
+/       \ /  |                                              /  |                
+$$$$$$$  |$$/   _______   _______   ______    ______    ____$$ |                
+$$ |  $$ |/  | /       | /       | /      \  /      \  /    $$ |                
+$$ |  $$ |$$ |/$$$$$$$/ /$$$$$$$/ /$$$$$$  |/$$$$$$  |/$$$$$$$ |                
+$$ |  $$ |$$ |$$      \ $$ |      $$ |  $$ |$$ |  $$/ $$ |  $$ |                
+$$ |__$$ |$$ | $$$$$$  |$$ \_____ $$ \__$$ |$$ |      $$ \__$$ |                
+$$    $$/ $$ |/     $$/ $$       |$$    $$/ $$ |      $$    $$ |                
+$$$$$$$/  $$/ $$$$$$$/   $$$$$$$/  $$$$$$/  $$/        $$$$$$$/                 
+
+ _______                                             __                         
+/       \                                           /  |                        
+$$$$$$$  |  ______    ______    ______    ______   _$$ |_     ______    ______  
+$$ |__$$ | /      \  /      \  /      \  /      \ / $$   |   /      \  /      \ 
+$$ |  $$< /$$$$$$  |/$$$$$$  |/$$$$$$  |/$$$$$$  |$$$$$$/   /$$$$$$  |/$$$$$$  |
+$$$$$$$  |$$    $$ |$$ |  $$ |$$ |  $$ |$$ |  $$/   $$ | __ $$    $$ |$$ |  $$/ 
+$$ |  $$ |$$$$$$$$/ $$ |__$$ |$$ \__$$ |$$ |        $$ |/  |$$$$$$$$/ $$ |      
+$$ |  $$ |$$       |$$    $$/ $$    $$/ $$ |        $$  $$/ $$       |$$ |      
+$$/   $$/  $$$$$$$/ $$$$$$$/   $$$$$$/  $$/          $$$$/   $$$$$$$/ $$/       
+                    $$ |                                                        
+                    $$ |                                                        
+                    $$/        
+                    developed by  vuln                                               
+""")
+        print(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}[1] Report")
+        print(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}[2] Exit")
+        choice = str(input(f"\n{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Select an option: "))
+        
+        if choice == "1":
+            os.system("cls")
+            self.token = str(input(f"\n{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Token: "))
+            self.guild_id = str(input(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Guild ID: "))
+            self.channel_id = str(input(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Channel ID: "))
+            self.message_id = str(input(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Message ID: "))
+            self.threads = int(input(f"{Fore.GREEN} > {Fore.WHITE}{Style.BRIGHT}Threads: "))
+            self.start()
+        elif choice == "2":
+            print(f"{Fore.RED}Exiting program...")
+            exit()
+        else:
+            print(f"{Fore.RED}Invalid option, please select 1 or 2.")
+            input(f"{Fore.GREEN}Press Enter to continue...")
+            self.main()
+
+if __name__ == "__main__":
+    Reporter().main()
+    input("Press Enter to exit...")
+# by vuln
